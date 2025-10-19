@@ -88,7 +88,7 @@ public:
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr m_compressed_cam_info_publisher;
 
   // GPU image publisher
-  rclcpp::Publisher<GpuImage>::SharedPtr m_gpu_image_publisher;
+  rclcpp::Publisher<video_reader::GpuImage>::SharedPtr m_gpu_image_publisher;
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr m_gpu_cam_info_publisher;
   std::string m_publish_mode;  // "cpu" | "gpu" | "both"
 

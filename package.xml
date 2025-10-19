@@ -31,6 +31,7 @@
   <depend>builtin_interfaces</depend>
   <depend>image_transport</depend>
   <depend>image_transport_plugins</depend>
+  <depend>video_reader</depend>
   <depend>v4l-utils</depend>
 
   <!-- Only required for MJPEG to RGB converison -->

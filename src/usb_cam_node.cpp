@@ -209,7 +209,7 @@ void UsbCamNode::init()
   // Initialize GPU publisher based on publish_mode
   if (m_publish_mode == "gpu") {
     m_gpu_image_publisher = 
-      this->create_publisher<GpuImage>("/image_gpu", rclcpp::SensorDataQoS());
+      this->create_publisher<video_reader::GpuImage>("/image_gpu", rclcpp::SensorDataQoS());
     m_gpu_cam_info_publisher = 
       this->create_publisher<sensor_msgs::msg::CameraInfo>("/camera_info", rclcpp::SensorDataQoS());
     RCLCPP_INFO(this->get_logger(), "GPU image publisher initialized");
@@ -432,7 +432,7 @@ bool UsbCamNode::take_and_send_image()
     gpu_mat->upload(cpu_image);
     
     // Create and publish GPU message
-    auto gpu_msg = std::make_unique<GpuImage>();
+    auto gpu_msg = std::make_unique<video_reader::GpuImage>();
     gpu_msg->gpu = std::move(gpu_mat);
     gpu_msg->encoding = m_image_msg->encoding;
     gpu_msg->width = m_image_msg->width;

@@ -52,6 +52,9 @@ target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBRARIES}
   ${cv_bridge_LIBRARIES})
 
+# 依赖 video_reader 的头文件（提供 GpuImage/TypeAdapter）
+ament_target_dependencies(${PROJECT_NAME} video_reader)
+
 ament_export_libraries(${PROJECT_NAME})
 
 ## Declare a ROS 2 composible node as a library
