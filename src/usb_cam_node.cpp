@@ -61,6 +61,7 @@ UsbCamNode::UsbCamNode(const rclcpp::NodeOptions & node_options)
         std::placeholders::_2,
         std::placeholders::_3)))
 {
+  try{
   // declare params
   this->declare_parameter("camera_name", "default_cam");
   this->declare_parameter("camera_info_url", "");
@@ -90,6 +91,16 @@ UsbCamNode::UsbCamNode(const rclcpp::NodeOptions & node_options)
     std::bind(
       &UsbCamNode::parameters_callback, this,
       std::placeholders::_1));
+  } catch (const char* msg) {
+    RCLCPP_ERROR(this->get_logger(), "Caught char* exception: %s", msg);
+    rclcpp::shutdown();
+  } catch (const std::exception& e) {
+    RCLCPP_ERROR(this->get_logger(), "Caught std::exception: %s", e.what());
+    rclcpp::shutdown();
+  } catch (...) {
+    RCLCPP_ERROR(this->get_logger(), "Caught unknown exception in UsbCamNode constructor");
+    rclcpp::shutdown();
+  }
 }
 
 UsbCamNode::~UsbCamNode()
