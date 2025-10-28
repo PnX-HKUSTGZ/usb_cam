@@ -43,6 +43,8 @@
 #include "std_srvs/srv/set_bool.hpp"
 
 #include "usb_cam/usb_cam.hpp"
+#include "video_reader/gpu_image.hpp"
+#include "video_reader/gpu_image_type_adapter.hpp" 
 
 
 std::ostream & operator<<(std::ostream & ostr, const rclcpp::Time & tm)
@@ -84,6 +86,11 @@ public:
   std::shared_ptr<image_transport::CameraPublisher> m_image_publisher;
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr m_compressed_image_publisher;
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr m_compressed_cam_info_publisher;
+
+  // GPU image publisher
+  rclcpp::Publisher<GpuImage>::SharedPtr m_gpu_image_publisher;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr m_gpu_cam_info_publisher;
+  std::string m_publish_mode;  // "cpu" | "gpu" | "both"
 
   parameters_t m_parameters;
 

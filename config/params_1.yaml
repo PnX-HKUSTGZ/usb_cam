@@ -21,3 +21,7 @@
       exposure: 100
       autofocus: false
       focus: -1
+      # publish_mode: "cpu" (默认) 或 "gpu"
+      # - "cpu": 发布标准 sensor_msgs/Image 到 /image_raw
+      # - "gpu": 发布 GPU 图像到 /image_gpu (需要 CUDA 支持)
+      # publish_mode: "cpu"

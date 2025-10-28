@@ -33,6 +33,8 @@
 #include <filesystem>
 #include "usb_cam/usb_cam_node.hpp"
 #include "usb_cam/utils.hpp"
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/cuda.hpp>
 
 const char BASE_TOPIC_NAME[] = "image_raw";
 
@@ -49,6 +51,9 @@ UsbCamNode::UsbCamNode(const rclcpp::NodeOptions & node_options)
       rclcpp::QoS {100}.get_rmw_qos_profile()))),
   m_compressed_image_publisher(nullptr),
   m_compressed_cam_info_publisher(nullptr),
+  m_gpu_image_publisher(nullptr),
+  m_gpu_cam_info_publisher(nullptr),
+  m_publish_mode("cpu"),
   m_parameters(),
   m_camera_info_msg(new sensor_msgs::msg::CameraInfo()),
   m_service_capture(
@@ -84,6 +89,7 @@ UsbCamNode::UsbCamNode(const rclcpp::NodeOptions & node_options)
   this->declare_parameter("exposure", 100);
   this->declare_parameter("autofocus", false);
   this->declare_parameter("focus", -1);  // 0-255, -1 "leave alone"
+  this->declare_parameter("publish_mode", "cpu");  // "cpu" | "gpu" | "both"
 
   get_params();
   init();
@@ -200,6 +206,21 @@ void UsbCamNode::init()
       "camera_info", rclcpp::QoS(100));
   }
 
+  // Initialize GPU publisher based on publish_mode
+  if (m_publish_mode == "gpu") {
+    m_gpu_image_publisher = 
+      this->create_publisher<GpuImage>("/image_gpu", rclcpp::SensorDataQoS());
+    m_gpu_cam_info_publisher = 
+      this->create_publisher<sensor_msgs::msg::CameraInfo>("/camera_info", rclcpp::SensorDataQoS());
+    RCLCPP_INFO(this->get_logger(), "GPU image publisher initialized");
+    
+    // Disable CPU publisher in GPU mode
+    m_image_publisher.reset();
+    RCLCPP_INFO(this->get_logger(), "CPU image publisher disabled (GPU-only mode)");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "CPU image publisher mode");
+  }
+
   m_image_msg->header.frame_id = m_parameters.frame_id;
   RCLCPP_INFO(
     this->get_logger(), "Starting '%s' (%s) at %dx%d via %s (%s) at %i FPS",
@@ -242,7 +263,7 @@ void UsbCamNode::get_params()
       "camera_name", "camera_info_url", "frame_id", "framerate", "image_height", "image_width",
       "io_method", "pixel_format", "av_device_format", "video_device", "brightness", "contrast",
       "saturation", "sharpness", "gain", "auto_white_balance", "white_balance", "autoexposure",
-      "exposure", "autofocus", "focus"
+      "exposure", "autofocus", "focus", "publish_mode"
     }
   );
 
@@ -296,6 +317,9 @@ void UsbCamNode::assign_params(const std::vector<rclcpp::Parameter> & parameters
       m_parameters.autofocus = parameter.as_bool();
     } else if (parameter.get_name() == "focus") {
       m_parameters.focus = parameter.as_int();
+    } else if (parameter.get_name() == "publish_mode") {
+      m_publish_mode = parameter.value_to_string();
+      RCLCPP_INFO(this->get_logger(), "publish_mode: %s", m_publish_mode.c_str());
     } else {
       RCLCPP_WARN(this->get_logger(), "Invalid parameter name: %s", parameter.get_name().c_str());
     }
@@ -395,7 +419,34 @@ bool UsbCamNode::take_and_send_image()
 
   *m_camera_info_msg = m_camera_info->getCameraInfo();
   m_camera_info_msg->header = m_image_msg->header;
-  m_image_publisher->publish(*m_image_msg, *m_camera_info_msg);
+  
+  // Publish based on mode
+  if (m_publish_mode == "gpu") {
+    // GPU mode: upload to GPU and publish
+    // Create OpenCV Mat from image data (no copy, just wrap)
+    cv::Mat cpu_image(m_image_msg->height, m_image_msg->width, 
+                      CV_8UC3, m_image_msg->data.data(), m_image_msg->step);
+    
+    // Upload to GPU
+    auto gpu_mat = std::make_shared<cv::cuda::GpuMat>();
+    gpu_mat->upload(cpu_image);
+    
+    // Create and publish GPU message
+    auto gpu_msg = std::make_unique<GpuImage>();
+    gpu_msg->gpu = std::move(gpu_mat);
+    gpu_msg->encoding = m_image_msg->encoding;
+    gpu_msg->width = m_image_msg->width;
+    gpu_msg->height = m_image_msg->height;
+    gpu_msg->step = m_image_msg->step;
+    gpu_msg->header = m_image_msg->header;
+    
+    m_gpu_image_publisher->publish(std::move(gpu_msg));
+    m_gpu_cam_info_publisher->publish(*m_camera_info_msg);
+  } else {
+    // CPU mode: publish standard ROS image
+    m_image_publisher->publish(*m_image_msg, *m_camera_info_msg);
+  }
+  
   return true;
 }
 
