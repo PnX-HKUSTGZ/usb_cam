@@ -333,37 +333,53 @@ void UsbCamNode::set_v4l2_params()
   // set camera parameters
   if (m_parameters.brightness >= 0) {
     RCLCPP_INFO(this->get_logger(), "Setting 'brightness' to %d", m_parameters.brightness);
-    m_camera->set_v4l_parameter("brightness", m_parameters.brightness);
+    if (m_camera->set_v4l_parameter("brightness", m_parameters.brightness) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'brightness'");
+    }
   }
 
   if (m_parameters.contrast >= 0) {
     RCLCPP_INFO(this->get_logger(), "Setting 'contrast' to %d", m_parameters.contrast);
-    m_camera->set_v4l_parameter("contrast", m_parameters.contrast);
+    if (m_camera->set_v4l_parameter("contrast", m_parameters.contrast) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'contrast'");
+    }
   }
 
   if (m_parameters.saturation >= 0) {
     RCLCPP_INFO(this->get_logger(), "Setting 'saturation' to %d", m_parameters.saturation);
-    m_camera->set_v4l_parameter("saturation", m_parameters.saturation);
+    if (m_camera->set_v4l_parameter("saturation", m_parameters.saturation) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'saturation'");
+    }
   }
 
   if (m_parameters.sharpness >= 0) {
     RCLCPP_INFO(this->get_logger(), "Setting 'sharpness' to %d", m_parameters.sharpness);
-    m_camera->set_v4l_parameter("sharpness", m_parameters.sharpness);
+    if (m_camera->set_v4l_parameter("sharpness", m_parameters.sharpness) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'sharpness'");
+    }
   }
 
   if (m_parameters.gain >= 0) {
     RCLCPP_INFO(this->get_logger(), "Setting 'gain' to %d", m_parameters.gain);
-    m_camera->set_v4l_parameter("gain", m_parameters.gain);
+    if (m_camera->set_v4l_parameter("gain", m_parameters.gain) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'gain'");
+    }
   }
 
   // check auto white balance
   if (m_parameters.auto_white_balance) {
-    m_camera->set_v4l_parameter("white_balance_temperature_auto", 1);
     RCLCPP_INFO(this->get_logger(), "Setting 'white_balance_temperature_auto' to %d", 1);
+    if (m_camera->set_v4l_parameter("white_balance_temperature_auto", 1) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'white_balance_temperature_auto'");
+    }
   } else {
     RCLCPP_INFO(this->get_logger(), "Setting 'white_balance' to %d", m_parameters.white_balance);
-    m_camera->set_v4l_parameter("white_balance_temperature_auto", 0);
-    m_camera->set_v4l_parameter("white_balance_temperature", m_parameters.white_balance);
+    if (m_camera->set_v4l_parameter("white_balance_temperature_auto", 0) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to disable 'white_balance_temperature_auto'");
+    }
+    if (m_camera->set_v4l_parameter("white_balance_temperature", m_parameters.white_balance) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'white_balance_temperature'");
+    }
   }
 
   // check auto exposure
@@ -371,25 +387,40 @@ void UsbCamNode::set_v4l2_params()
     RCLCPP_INFO(this->get_logger(), "Setting 'exposure_auto' to %d", 1);
     RCLCPP_INFO(this->get_logger(), "Setting 'exposure' to %d", m_parameters.exposure);
     // turn down exposure control (from max of 3)
-    m_camera->set_v4l_parameter("exposure_auto", 1);
+    if (m_camera->set_v4l_parameter("exposure_auto", 1) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'exposure_auto'");
+    }
     // change the exposure level
-    m_camera->set_v4l_parameter("exposure_absolute", m_parameters.exposure);
+    if (m_camera->set_v4l_parameter("exposure_absolute", m_parameters.exposure) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'exposure_absolute'");
+    }
   } else {
     RCLCPP_INFO(this->get_logger(), "Setting 'exposure_auto' to %d", 3);
-    m_camera->set_v4l_parameter("exposure_auto", 3);
+    if (m_camera->set_v4l_parameter("exposure_auto", 3) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'exposure_auto'");
+    }
   }
 
   // check auto focus
   if (m_parameters.autofocus) {
-    m_camera->set_auto_focus(1);
-    RCLCPP_INFO(this->get_logger(), "Setting 'focus_auto' to %d", 1);
-    m_camera->set_v4l_parameter("focus_auto", 1);
+    if (m_camera->set_auto_focus(1)) {
+      RCLCPP_INFO(this->get_logger(), "Setting 'focus_auto' to %d", 1);
+      if (m_camera->set_v4l_parameter("focus_auto", 1) != 0) {
+        RCLCPP_WARN(this->get_logger(), "Failed to set 'focus_auto' (may not be supported)");
+      }
+    } else {
+      RCLCPP_WARN(this->get_logger(), "Auto focus not supported by this camera");
+    }
   } else {
     RCLCPP_INFO(this->get_logger(), "Setting 'focus_auto' to %d", 0);
-    m_camera->set_v4l_parameter("focus_auto", 0);
+    if (m_camera->set_v4l_parameter("focus_auto", 0) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'focus_auto' (may not be supported)");
+    }
     if (m_parameters.focus >= 0) {
       RCLCPP_INFO(this->get_logger(), "Setting 'focus_absolute' to %d", m_parameters.focus);
-      m_camera->set_v4l_parameter("focus_absolute", m_parameters.focus);
+      if (m_camera->set_v4l_parameter("focus_absolute", m_parameters.focus) != 0) {
+        RCLCPP_WARN(this->get_logger(), "Failed to set 'focus_absolute' (may not be supported)");
+      }
     }
   }
 }
