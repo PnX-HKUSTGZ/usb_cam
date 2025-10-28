@@ -368,14 +368,14 @@ void UsbCamNode::set_v4l2_params()
 
   // check auto white balance
   if (m_parameters.auto_white_balance) {
-    RCLCPP_INFO(this->get_logger(), "Setting 'white_balance_temperature_auto' to %d", 1);
-    if (m_camera->set_v4l_parameter("white_balance_temperature_auto", 1) != 0) {
-      RCLCPP_WARN(this->get_logger(), "Failed to set 'white_balance_temperature_auto'");
+    RCLCPP_INFO(this->get_logger(), "Setting 'white_balance_automatic' to %d", 1);
+    if (m_camera->set_v4l_parameter("white_balance_automatic", 1) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'white_balance_automatic'");
     }
   } else {
     RCLCPP_INFO(this->get_logger(), "Setting 'white_balance' to %d", m_parameters.white_balance);
-    if (m_camera->set_v4l_parameter("white_balance_temperature_auto", 0) != 0) {
-      RCLCPP_WARN(this->get_logger(), "Failed to disable 'white_balance_temperature_auto'");
+    if (m_camera->set_v4l_parameter("white_balance_automatic", 0) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to disable 'white_balance_automatic'");
     }
     if (m_camera->set_v4l_parameter("white_balance_temperature", m_parameters.white_balance) != 0) {
       RCLCPP_WARN(this->get_logger(), "Failed to set 'white_balance_temperature'");
@@ -384,43 +384,40 @@ void UsbCamNode::set_v4l2_params()
 
   // check auto exposure
   if (!m_parameters.autoexposure) {
-    RCLCPP_INFO(this->get_logger(), "Setting 'exposure_auto' to %d", 1);
+    RCLCPP_INFO(this->get_logger(), "Setting 'auto_exposure' to %d (Manual Mode)", 1);
     RCLCPP_INFO(this->get_logger(), "Setting 'exposure' to %d", m_parameters.exposure);
-    // turn down exposure control (from max of 3)
-    if (m_camera->set_v4l_parameter("exposure_auto", 1) != 0) {
-      RCLCPP_WARN(this->get_logger(), "Failed to set 'exposure_auto'");
+    // Set to manual mode (1 = Manual Mode, 3 = Aperture Priority Mode)
+    if (m_camera->set_v4l_parameter("auto_exposure", 1) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'auto_exposure'");
     }
     // change the exposure level
-    if (m_camera->set_v4l_parameter("exposure_absolute", m_parameters.exposure) != 0) {
-      RCLCPP_WARN(this->get_logger(), "Failed to set 'exposure_absolute'");
+    if (m_camera->set_v4l_parameter("exposure_time_absolute", m_parameters.exposure) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'exposure_time_absolute'");
     }
   } else {
-    RCLCPP_INFO(this->get_logger(), "Setting 'exposure_auto' to %d", 3);
-    if (m_camera->set_v4l_parameter("exposure_auto", 3) != 0) {
-      RCLCPP_WARN(this->get_logger(), "Failed to set 'exposure_auto'");
+    RCLCPP_INFO(this->get_logger(), "Setting 'auto_exposure' to %d (Aperture Priority Mode)", 3);
+    if (m_camera->set_v4l_parameter("auto_exposure", 3) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'auto_exposure'");
     }
   }
 
-  // check auto focus
+  // check auto focus (many cameras don't support focus control)
   if (m_parameters.autofocus) {
     if (m_camera->set_auto_focus(1)) {
       RCLCPP_INFO(this->get_logger(), "Setting 'focus_auto' to %d", 1);
       if (m_camera->set_v4l_parameter("focus_auto", 1) != 0) {
-        RCLCPP_WARN(this->get_logger(), "Failed to set 'focus_auto' (may not be supported)");
+        RCLCPP_WARN(this->get_logger(), "Focus control not supported by this camera");
       }
     } else {
       RCLCPP_WARN(this->get_logger(), "Auto focus not supported by this camera");
     }
-  } else {
-    RCLCPP_INFO(this->get_logger(), "Setting 'focus_auto' to %d", 0);
+  } else if (m_parameters.focus >= 0) {
+    // Only try to set manual focus if focus parameter is explicitly set
+    RCLCPP_INFO(this->get_logger(), "Attempting to set 'focus_absolute' to %d", m_parameters.focus);
     if (m_camera->set_v4l_parameter("focus_auto", 0) != 0) {
-      RCLCPP_WARN(this->get_logger(), "Failed to set 'focus_auto' (may not be supported)");
-    }
-    if (m_parameters.focus >= 0) {
-      RCLCPP_INFO(this->get_logger(), "Setting 'focus_absolute' to %d", m_parameters.focus);
-      if (m_camera->set_v4l_parameter("focus_absolute", m_parameters.focus) != 0) {
-        RCLCPP_WARN(this->get_logger(), "Failed to set 'focus_absolute' (may not be supported)");
-      }
+      RCLCPP_WARN(this->get_logger(), "Focus control not supported by this camera");
+    } else if (m_camera->set_v4l_parameter("focus_absolute", m_parameters.focus) != 0) {
+      RCLCPP_WARN(this->get_logger(), "Failed to set 'focus_absolute'");
     }
   }
 }
