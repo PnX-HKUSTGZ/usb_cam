@@ -61,7 +61,7 @@ UsbCamNode::UsbCamNode(const rclcpp::NodeOptions & node_options)
         std::placeholders::_2,
         std::placeholders::_3)))
 {
-  try{
+  try {
   // declare params
   this->declare_parameter("camera_name", "default_cam");
   this->declare_parameter("camera_info_url", "");
@@ -73,17 +73,18 @@ UsbCamNode::UsbCamNode(const rclcpp::NodeOptions & node_options)
   this->declare_parameter("pixel_format", "yuyv");
   this->declare_parameter("av_device_format", "YUV422P");
   this->declare_parameter("video_device", "/dev/video0");
-  this->declare_parameter("brightness", 50);  // 0-255, -1 "leave alone"
-  this->declare_parameter("contrast", -1);    // 0-255, -1 "leave alone"
-  this->declare_parameter("saturation", -1);  // 0-255, -1 "leave alone"
+  this->declare_parameter("brightness", 0);  // 0-255, -1 "leave alone"
+  this->declare_parameter("contrast", 32);    // 0-255, -1 "leave alone"
+  this->declare_parameter("saturation", 64);  // 0-255, -1 "leave alone"
   this->declare_parameter("sharpness", -1);   // 0-255, -1 "leave alone"
-  this->declare_parameter("gain", -1);        // 0-100?, -1 "leave alone"
-  this->declare_parameter("auto_white_balance", true);
-  this->declare_parameter("white_balance", 4000);
-  this->declare_parameter("autoexposure", true);
-  this->declare_parameter("exposure", 100);
+  this->declare_parameter("gain", 32);        // 0-100?, -1 "leave alone"
+  this->declare_parameter("auto_white_balance", false);
+  this->declare_parameter("white_balance", 5000);
+  this->declare_parameter("auto_exposure", 1);
+  this->declare_parameter("exposure", 300);
   this->declare_parameter("autofocus", false);
   this->declare_parameter("focus", -1);  // 0-255, -1 "leave alone"
+  this->declare_parameter("gamma", -1);
 
   get_params();
   init();
@@ -241,8 +242,8 @@ void UsbCamNode::get_params()
     {
       "camera_name", "camera_info_url", "frame_id", "framerate", "image_height", "image_width",
       "io_method", "pixel_format", "av_device_format", "video_device", "brightness", "contrast",
-      "saturation", "sharpness", "gain", "auto_white_balance", "white_balance", "autoexposure",
-      "exposure", "autofocus", "focus"
+      "saturation", "sharpness", "gain", "auto_white_balance", "white_balance", "auto_exposure",
+      "exposure", "autofocus", "focus", "gamma"
     }
   );
 
@@ -288,14 +289,16 @@ void UsbCamNode::assign_params(const std::vector<rclcpp::Parameter> & parameters
       m_parameters.auto_white_balance = parameter.as_bool();
     } else if (parameter.get_name() == "white_balance") {
       m_parameters.white_balance = parameter.as_int();
-    } else if (parameter.get_name() == "autoexposure") {
-      m_parameters.autoexposure = parameter.as_bool();
+    } else if (parameter.get_name() == "auto_exposure") {
+      m_parameters.auto_exposure = parameter.as_int();
     } else if (parameter.get_name() == "exposure") {
       m_parameters.exposure = parameter.as_int();
     } else if (parameter.get_name() == "autofocus") {
       m_parameters.autofocus = parameter.as_bool();
     } else if (parameter.get_name() == "focus") {
       m_parameters.focus = parameter.as_int();
+    } else if (parameter.get_name() == "gamma"){
+      m_parameters.gamma = parameter.as_int();
     } else {
       RCLCPP_WARN(this->get_logger(), "Invalid parameter name: %s", parameter.get_name().c_str());
     }
@@ -307,7 +310,7 @@ void UsbCamNode::assign_params(const std::vector<rclcpp::Parameter> & parameters
 void UsbCamNode::set_v4l2_params()
 {
   // set camera parameters
-  if (m_parameters.brightness >= 0) {
+  if (m_parameters.brightness >= 0 || m_parameters.brightness < 0) {
     RCLCPP_INFO(this->get_logger(), "Setting 'brightness' to %d", m_parameters.brightness);
     m_camera->set_v4l_parameter("brightness", m_parameters.brightness);
   }
@@ -327,6 +330,10 @@ void UsbCamNode::set_v4l2_params()
     m_camera->set_v4l_parameter("sharpness", m_parameters.sharpness);
   }
 
+  if (m_parameters.gamma >= 1) {
+    RCLCPP_INFO(this->get_logger(), "Setting 'gamma' to %d", m_parameters.gamma);
+    m_camera->set_v4l_parameter("gamma", m_parameters.gamma);
+  }
   if (m_parameters.gain >= 0) {
     RCLCPP_INFO(this->get_logger(), "Setting 'gain' to %d", m_parameters.gain);
     m_camera->set_v4l_parameter("gain", m_parameters.gain);
@@ -334,25 +341,25 @@ void UsbCamNode::set_v4l2_params()
 
   // check auto white balance
   if (m_parameters.auto_white_balance) {
-    m_camera->set_v4l_parameter("white_balance_temperature_auto", 1);
-    RCLCPP_INFO(this->get_logger(), "Setting 'white_balance_temperature_auto' to %d", 1);
+    m_camera->set_v4l_parameter("white_balance_automatic", 1);
+    RCLCPP_INFO(this->get_logger(), "Setting 'white_balance_automatic' to %d", 1);
   } else {
     RCLCPP_INFO(this->get_logger(), "Setting 'white_balance' to %d", m_parameters.white_balance);
-    m_camera->set_v4l_parameter("white_balance_temperature_auto", 0);
+    m_camera->set_v4l_parameter("white_balance_automatic", 0);
     m_camera->set_v4l_parameter("white_balance_temperature", m_parameters.white_balance);
   }
 
   // check auto exposure
-  if (!m_parameters.autoexposure) {
-    RCLCPP_INFO(this->get_logger(), "Setting 'exposure_auto' to %d", 1);
+  if (m_parameters.auto_exposure) {
+    RCLCPP_INFO(this->get_logger(), "Setting 'auto_exposure' to %d", 1 );
     RCLCPP_INFO(this->get_logger(), "Setting 'exposure' to %d", m_parameters.exposure);
     // turn down exposure control (from max of 3)
-    m_camera->set_v4l_parameter("exposure_auto", 1);
+    m_camera->set_v4l_parameter("auto_exposure", 1);
     // change the exposure level
-    m_camera->set_v4l_parameter("exposure_absolute", m_parameters.exposure);
+    m_camera->set_v4l_parameter("exposure_time_absolute", m_parameters.exposure);
   } else {
-    RCLCPP_INFO(this->get_logger(), "Setting 'exposure_auto' to %d", 3);
-    m_camera->set_v4l_parameter("exposure_auto", 3);
+    RCLCPP_INFO(this->get_logger(), "Setting 'auto_exposure' to %d", 1);
+    m_camera->set_v4l_parameter("auto_exposure", 1);
   }
 
   // check auto focus
